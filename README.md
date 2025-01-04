@@ -6,6 +6,7 @@ Um dia alguma coisa será escrita aqui xD
 <a href="https://skillicons.dev"><img src="https://skillicons.dev/icons?i=cpp,latex"/></a>
 
 Alunos:
+
 ➡ [João Pedro Martins Oliveira](https://github.com/joao-zip)
 
 ➡ [Mateus Campanha Pereira](https://github.com/Mateusttp)
