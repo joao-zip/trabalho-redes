@@ -7,6 +7,9 @@ Um dia alguma coisa será escrita aqui xD
 
 Alunos:
 ➡ [João Pedro Martins Oliveira](https://github.com/joao-zip)
+
 ➡ [Mateus Campanha Pereira](https://github.com/Mateusttp)
+
 ➡ [Matheus Ramos Esteves](https://github.com/joao-zip)
+
 ➡ [Tiago Henrique Miranda Silva](https://github.com/TH-Miranda)
