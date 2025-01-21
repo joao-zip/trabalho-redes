@@ -38,7 +38,7 @@ void RunScenario(uint32_t numClients, std::ofstream &outputFile) {
   wifi.SetRemoteStationManager("ns3::ConstantRateWifiManager", "DataMode", StringValue("HtMcs7"), "ControlMode", StringValue("HtMcs0"));
   
   WifiMacHelper mac;
-  Ssid ssid = Ssid("EquipeX");
+  Ssid ssid = Ssid("Equipe1");
   
   // Configuração do AP
   mac.SetType("ns3::ApWifiMac", "Ssid", SsidValue(ssid));
