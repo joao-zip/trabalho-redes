@@ -14,7 +14,7 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("TrabalhoRedes");
 
-void RunScenario(uint32_t numClients, std::ofstream &outputFile) {
+void RunScenario(uint32_t numClients) {
     NodeContainer serverNode;
     serverNode.Create(1);
 
@@ -66,27 +66,21 @@ void RunScenario(uint32_t numClients, std::ofstream &outputFile) {
 
     // Configurando a mobilidade dos nós
     MobilityHelper mobility;
-
-    // AP estático
     mobility.SetPositionAllocator("ns3::GridPositionAllocator",
-                                    "MinX", DoubleValue(0.0),
-                                    "MinY", DoubleValue(0.0),
-                                    "DeltaX", DoubleValue(5.0),
-                                    "DeltaY", DoubleValue(10.0),
-                                    "GridWidth", UintegerValue(3),
-                                    "LayoutType", StringValue("RowFirst"));
-
+                                  "MinX", DoubleValue(0.0),
+                                  "MinY", DoubleValue(0.0),
+                                  "DeltaX", DoubleValue(5.0),
+                                  "DeltaY", DoubleValue(10.0),
+                                  "GridWidth", UintegerValue(3),
+                                  "LayoutType", StringValue("RowFirst"));
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
     mobility.Install(apNode);
-
-    // Clientes com posição inicial fixa
-    mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+    mobility.Install(serverNode);
     mobility.Install(wifiStaNodes);
 
     // Aplicação TCP no servidor
     uint16_t port = 9; // Porta do servidor
-    Address serverAddress(InetSocketAddress(p2pInterfaces.GetAddress(1), port));
-
+    Address serverAddress(InetSocketAddress(p2pInterfaces.GetAddress(0), port));
     PacketSinkHelper packetSinkHelper("ns3::TcpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port));
     ApplicationContainer serverApp = packetSinkHelper.Install(serverNode.Get(0));
     serverApp.Start(Seconds(1.0));
@@ -96,13 +90,12 @@ void RunScenario(uint32_t numClients, std::ofstream &outputFile) {
     OnOffHelper tcpClient("ns3::TcpSocketFactory", serverAddress);
     tcpClient.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
     tcpClient.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"));
-    tcpClient.SetAttribute("DataRate", DataRateValue(DataRate("5Mbps"))); // Taxa de transmissão
-    tcpClient.SetAttribute("PacketSize", UintegerValue(512)); // Tamanho do pacote em bytes
+    tcpClient.SetAttribute("DataRate", DataRateValue(DataRate("5Mbps")));
+    tcpClient.SetAttribute("PacketSize", UintegerValue(512));
 
     ApplicationContainer clientApps = tcpClient.Install(wifiStaNodes);
-    clientApps.Start(Seconds(1.0));
+    clientApps.Start(Seconds(2.0));
     clientApps.Stop(Seconds(20.0));
-
 
     // Habilitar o roteamento no AP
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
@@ -112,56 +105,19 @@ void RunScenario(uint32_t numClients, std::ofstream &outputFile) {
     FlowMonitorHelper flowHelper;
     flowMonitor = flowHelper.InstallAll();
 
-    // Iniciar a simulação
     Simulator::Stop(Seconds(30.0));
     Simulator::Run();
 
-    // Analisar métricas do Flow Monitor
-    flowMonitor->CheckForLostPackets();
-    Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier>(flowHelper.GetClassifier());
-    FlowMonitor::FlowStatsContainer stats = flowMonitor->GetFlowStats();
+    flowMonitor->SerializeToXmlFile("tcp_static_simulation_results.xml", true, true);
 
-    outputFile << "NumClients,FlowID,SourceAddress,DestinationAddress,Throughput(Mbps),Delay(s),LostPackets,ReceivedPackets\n";
-
-    for (auto it = stats.begin(); it != stats.end(); ++it) {
-        Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow(it->first);
-        double throughput = 0.0;
-        double delay = 0.0;
-
-        if (it->second.rxPackets > 0) {
-        throughput = it->second.rxBytes * 8.0 / (it->second.timeLastRxPacket.GetSeconds() - it->second.timeFirstTxPacket.GetSeconds()) / 1024 / 1024;
-        delay = it->second.delaySum.GetSeconds() / it->second.rxPackets;
-        }
-
-        outputFile << numClients << ","
-                << it->first << ","
-                << t.sourceAddress << ","
-                << t.destinationAddress << ","
-                << std::fixed << std::setprecision(6) // Mais precisão para throughput e delay
-                << throughput << ","
-                << delay << ","
-                << it->second.lostPackets << ","
-                << it->second.rxPackets << "\n";
-    }
-
-    outputFile << "\n";
-
-    // Finalizar a simulação
     Simulator::Destroy();
 }
 
 int main(int argc, char *argv[]) {
-  // Criar arquivo para saída dos resultados
-  std::ofstream outputFile("simulation_results.csv");
+    
+    for (uint32_t numClients : {4, 8, 16, 32}) {
+        RunScenario(numClients);
+    }
 
-  // Adicionar cabeçalho geral
-  outputFile << "NumClients,FlowID,SourceAddress,DestinationAddress,Throughput(Mbps),Delay(s),LostPackets,ReceivedPackets\n";
-
-  // Rodar cenários com diferentes números de clientes
-  for (uint32_t numClients : {4, 8, 16, 32}) {
-    RunScenario(numClients, outputFile);
-  }
-
-  outputFile.close();
-  return 0;
+    return 0;
 }
