@@ -15,8 +15,9 @@ NS_LOG_COMPONENT_DEFINE("TrabalhoRedes");
 
 int main(int argc, char *argv[]) {
   // Configuração de logs (não necessariamente usados, mas permanecem)
-  LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
-  LogComponentEnable("UdpEchoServerApplication", LOG_LEVEL_INFO);
+  // LogComponentEnable("TrabalhoRedes", LOG_LEVEL_INFO);
+  // LogComponentEnable("StaWifiMac", LOG_LEVEL_INFO);
+  // LogComponentEnable("ApWifiMac", LOG_LEVEL_INFO);
 
   // Criando o nó servidor (s0)
   NodeContainer serverNode;
@@ -49,16 +50,6 @@ int main(int argc, char *argv[]) {
   mac.SetType("ns3::ApWifiMac",
               "Ssid", SsidValue(ssid));
   NetDeviceContainer apDevice = wifi.Install(phy, mac, apNode);
-
-  Ptr<NetDevice> dev = apDevice.Get(0);
-  Ptr<WifiNetDevice> wifiDev = DynamicCast<WifiNetDevice>(dev);
-  Ptr<ApWifiMac> apWifiMac = DynamicCast<ApWifiMac>(wifiDev->GetMac());
-  if (apWifiMac) {
-    apWifiMac->SetMaxSupportedSta(32);
-  }
-  else {
-    NS_LOG_ERROR("AP MAC não encontrado");
-  }
 
   // Configuração dos clientes
   mac.SetType("ns3::StaWifiMac", "Ssid", SsidValue(ssid));
@@ -96,9 +87,11 @@ int main(int argc, char *argv[]) {
   mobility.SetPositionAllocator("ns3::GridPositionAllocator",
                                 "MinX", DoubleValue(0.0),
                                 "MinY", DoubleValue(0.0),
-                                "DeltaX", DoubleValue(5.0),
-                                "DeltaY", DoubleValue(10.0),
-                                "GridWidth", UintegerValue(3),
+                                // Delta
+                                "DeltaX", DoubleValue(2.0),
+                                "DeltaY", DoubleValue(4.0),
+                                // Tamanho da grade 
+                                "GridWidth", UintegerValue(8),
                                 "LayoutType", StringValue("RowFirst"));
   mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
   mobility.Install(apNode);
