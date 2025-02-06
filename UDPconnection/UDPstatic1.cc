@@ -8,6 +8,7 @@
 #include "ns3/flow-monitor-module.h"
 #include "ns3/point-to-point-module.h"
 #include "ns3/on-off-helper.h"
+#include "ns3/netanim-module.h"
 
 using namespace ns3;
 
@@ -39,10 +40,10 @@ int main(int argc, char *argv[]) {
 
   // Configurando o dispositivo Wi-Fi
   WifiHelper wifi;
-  wifi.SetRemoteStationManager("ns3::ConstantRateWifiManager", 
-                               "DataMode", StringValue("HtMcs7"), 
+  wifi.SetRemoteStationManager("ns3::ConstantRateWifiManager",
+                               "DataMode", StringValue("HtMcs7"),
                                "ControlMode", StringValue("HtMcs0"));
-  
+
   WifiMacHelper mac;
   Ssid ssid = Ssid("EquipeX");
 
@@ -76,7 +77,7 @@ int main(int argc, char *argv[]) {
   p2p.SetDeviceAttribute("DataRate", StringValue("100Mbps"));
   p2p.SetChannelAttribute("Delay", StringValue("2ms"));
   NetDeviceContainer p2pDevices = p2p.Install(apNode.Get(0), serverNode.Get(0));
-  
+
   // Atribuindo endereços IP ao link ponto a ponto
   Ipv4AddressHelper p2pAddress;
   p2pAddress.SetBase("10.1.1.0", "255.255.255.0");
@@ -90,7 +91,7 @@ int main(int argc, char *argv[]) {
                                 // Delta
                                 "DeltaX", DoubleValue(2.0),
                                 "DeltaY", DoubleValue(4.0),
-                                // Tamanho da grade 
+                                // Tamanho da grade
                                 "GridWidth", UintegerValue(8),
                                 "LayoutType", StringValue("RowFirst"));
   mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
@@ -122,6 +123,8 @@ int main(int argc, char *argv[]) {
   Ptr<FlowMonitor> flowMonitor;
   FlowMonitorHelper flowHelper;
   flowMonitor = flowHelper.InstallAll();
+
+  AnimationInterface anim("UDPstatic1.xml");
 
   Simulator::Stop(Seconds(40.0));
   Simulator::Run();
