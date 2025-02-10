@@ -110,7 +110,7 @@ int main(int argc, char *argv[]) {
   OnOffHelper onOffHelper("ns3::UdpSocketFactory", InetSocketAddress(p2pInterfaces.GetAddress(1), port));
   onOffHelper.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
   onOffHelper.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"));
-  onOffHelper.SetAttribute("DataRate", StringValue("1Mbps"));
+  onOffHelper.SetAttribute("DataRate", StringValue("5Mbps"));
   onOffHelper.SetAttribute("PacketSize", UintegerValue(1024));
   ApplicationContainer clientApps = onOffHelper.Install(wifiStaNodes);
   clientApps.Start(Seconds(2.0));
