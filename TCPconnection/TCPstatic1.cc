@@ -22,7 +22,7 @@ int main (int argc, char *argv[])
   apNode.Create(1);
 
   NodeContainer wifiStaNodes;
-  wifiStaNodes.Create(32);
+  wifiStaNodes.Create(16);
 
   // Configurando o canal e PHY do Wi-Fi
   YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
@@ -97,9 +97,12 @@ int main (int argc, char *argv[])
 
   // Aplicação TCP: configurando os clientes para enviar dados ao servidor
   // Utilizamos BulkSendHelper para enviar dados via TCP (o atributo "MaxBytes" com valor 0 indica envio ilimitado)
-  BulkSendHelper bulkSend("ns3::TcpSocketFactory", InetSocketAddress(p2pInterfaces.GetAddress(1), port));
-  bulkSend.SetAttribute("MaxBytes", UintegerValue(0)); // sem limite de bytes
-  ApplicationContainer clientApps = bulkSend.Install(wifiStaNodes);
+  OnOffHelper onOffHelper("ns3::TcpSocketFactory", InetSocketAddress(p2pInterfaces.GetAddress(1), port));
+  onOffHelper.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
+  onOffHelper.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"));
+  onOffHelper.SetAttribute("DataRate", DataRateValue(DataRate("5Mbps")));
+  onOffHelper.SetAttribute("PacketSize", UintegerValue(1024));
+  ApplicationContainer clientApps = onOffHelper.Install(wifiStaNodes);
   clientApps.Start(Seconds(2.0));
   clientApps.Stop(Seconds(30.0));
 
