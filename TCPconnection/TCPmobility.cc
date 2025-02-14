@@ -5,17 +5,16 @@
 #include "ns3/mobility-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/bridge-module.h"
-#include "ns3/point-to-point-module.h"
 #include "ns3/flow-monitor-module.h"
-#include <fstream>
-#include <iomanip>
+#include "ns3/point-to-point-module.h"
+#include <cmath>
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE("TrabalhoRedes");
+NS_LOG_COMPONENT_DEFINE("TrabalhoRedesTCP");
 
-void RunScenario(uint32_t numClients) {
-  // Configurações idênticas ao cenário UDP com mobilidade
+int main (int argc, char *argv[])
+{
   NodeContainer serverNode;
   serverNode.Create(1);
 
@@ -23,14 +22,17 @@ void RunScenario(uint32_t numClients) {
   apNode.Create(1);
 
   NodeContainer wifiStaNodes;
-  wifiStaNodes.Create(numClients);
+  wifiStaNodes.Create(4);
 
   YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
   YansWifiPhyHelper phy = YansWifiPhyHelper();
+  phy.SetPcapDataLinkType(YansWifiPhyHelper::DLT_IEEE802_11);
   phy.SetChannel(channel.Create());
 
   WifiHelper wifi;
-  wifi.SetRemoteStationManager("ns3::AarfWifiManager");
+  wifi.SetRemoteStationManager("ns3::ConstantRateWifiManager",
+                               "DataMode", StringValue("HtMcs7"),
+                               "ControlMode", StringValue("HtMcs0"));
 
   WifiMacHelper mac;
   Ssid ssid = Ssid("EquipeX");
@@ -46,10 +48,13 @@ void RunScenario(uint32_t numClients) {
   stack.Install(apNode);
   stack.Install(wifiStaNodes);
 
+  Ptr<Ipv4> ipv4 = apNode.Get(0)->GetObject<Ipv4>();
+  ipv4->SetAttribute("IpForward", BooleanValue(true));
+
   Ipv4AddressHelper address;
   address.SetBase("192.168.0.0", "255.255.255.0");
-  address.Assign(apDevice);
-  address.Assign(staDevices);
+  Ipv4InterfaceContainer apInterface = address.Assign(apDevice);
+  Ipv4InterfaceContainer staInterfaces = address.Assign(staDevices);
 
   PointToPointHelper p2p;
   p2p.SetDeviceAttribute("DataRate", StringValue("100Mbps"));
@@ -60,64 +65,61 @@ void RunScenario(uint32_t numClients) {
   p2pAddress.SetBase("10.1.1.0", "255.255.255.0");
   Ipv4InterfaceContainer p2pInterfaces = p2pAddress.Assign(p2pDevices);
 
-  MobilityHelper mobility;
-  mobility.SetPositionAllocator("ns3::GridPositionAllocator",
-                                "MinX", DoubleValue(0.0),
-                                "MinY", DoubleValue(0.0),
-                                "DeltaX", DoubleValue(5.0),
-                                "DeltaY", DoubleValue(10.0),
-                                "GridWidth", UintegerValue(3),
-                                "LayoutType", StringValue("RowFirst"));
+  MobilityHelper mobilityAp;
+  Ptr<ListPositionAllocator> posAllocAp = CreateObject<ListPositionAllocator>();
+  posAllocAp->Add(Vector(25.0, 25.0, 0.0));
+  mobilityAp.SetPositionAllocator(posAllocAp);
+  mobilityAp.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+  mobilityAp.Install(apNode);
 
-  mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-  mobility.Install(apNode);
+  MobilityHelper mobilitySta;
+  mobilitySta.SetMobilityModel("ns3::ConstantVelocityMobilityModel");
+  mobilitySta.Install(wifiStaNodes);
 
-  mobility.SetPositionAllocator("ns3::RandomRectanglePositionAllocator",
-                                "X", StringValue("ns3::UniformRandomVariable[Min=0.0|Max=50.0]"),
-                                "Y", StringValue("ns3::UniformRandomVariable[Min=0.0|Max=50.0]"));
+  double radius = 10.0;
+  double speed = 2.0;
+  double apX = 25.0, apY = 25.0;
 
-  mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
-                            "Bounds", RectangleValue(Rectangle(0, 50, 0, 50)),
-                            "Speed", StringValue("ns3::ConstantRandomVariable[Constant=5.0]"),
-                            "Distance", DoubleValue(10.0));
-  mobility.Install(wifiStaNodes);
+  for (uint32_t i = 0; i < wifiStaNodes.GetN(); i++) {
+    Ptr<Node> node = wifiStaNodes.Get(i);
+    Ptr<ConstantVelocityMobilityModel> mob = node->GetObject<ConstantVelocityMobilityModel>();
+    double angle = 2 * M_PI * i / wifiStaNodes.GetN(); 
+    double x = apX + radius * std::cos(angle);
+    double y = apY + radius * std::sin(angle);
+    mob->SetPosition(Vector(x, y, 0.0));
+    double dx = -std::sin(angle) * speed;
+    double dy = std::cos(angle) * speed;
+    mob->SetVelocity(Vector(dx, dy, 0.0));
+  }
 
-  // Configurações TCP
-  uint16_t tcpPort = 8080;
-  PacketSinkHelper tcpSinkHelper("ns3::TcpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), tcpPort));
-  ApplicationContainer serverApp = tcpSinkHelper.Install(serverNode.Get(0));
+  uint16_t port = 5000;
+  Address serverAddress(InetSocketAddress(p2pInterfaces.GetAddress(1), port));
+
+  PacketSinkHelper sinkHelper("ns3::TcpSocketFactory", serverAddress);
+  ApplicationContainer serverApp = sinkHelper.Install(serverNode.Get(0));
   serverApp.Start(Seconds(1.0));
-  serverApp.Stop(Seconds(10.0));
+  serverApp.Stop(Seconds(30.0));
 
-  OnOffHelper tcpClient("ns3::TcpSocketFactory", InetSocketAddress(p2pInterfaces.GetAddress(1), tcpPort));
-  tcpClient.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
-  tcpClient.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"));
-  tcpClient.SetAttribute("DataRate", StringValue("5Mbps"));
-  tcpClient.SetAttribute("PacketSize", UintegerValue(1024));
+  OnOffHelper onOff("ns3::TcpSocketFactory", serverAddress);
+  onOff.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
+  onOff.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"));
+  onOff.SetAttribute("DataRate", StringValue("50Mbps"));
+  onOff.SetAttribute("PacketSize", UintegerValue(1024));
 
-  ApplicationContainer clientApps = tcpClient.Install(wifiStaNodes);
+  ApplicationContainer clientApps = onOff.Install(wifiStaNodes);
   clientApps.Start(Seconds(2.0));
-  clientApps.Stop(Seconds(10.0));
+  clientApps.Stop(Seconds(30.0));
 
   Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
-  Ptr<FlowMonitor> flowMonitor;
   FlowMonitorHelper flowHelper;
-  flowMonitor = flowHelper.InstallAll();
+  Ptr<FlowMonitor> flowMonitor = flowHelper.InstallAll();
 
-  Simulator::Stop(Seconds(10.0));
+  Simulator::Stop(Seconds(40.0));
   Simulator::Run();
 
-  flowMonitor->SerializeToXmlFile("tcp_mobility_simulation_results.xml", true, true);
-
+  flowMonitor->SerializeToXmlFile("TCP_mobility_4.xml", true, true);
   Simulator::Destroy();
-}
 
-int main(int argc, char *argv[]) {
-    
-    for (uint32_t numClients : {4, 8, 16, 32}) {
-        RunScenario(numClients);
-    }
-
-    return 0;
+  return 0;
 }
